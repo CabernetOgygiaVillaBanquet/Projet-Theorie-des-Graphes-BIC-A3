@@ -12,6 +12,7 @@ int main()
 
     while (!graphic.keyGet(ALLEGRO_KEY_ESCAPE) && !graphic.keyGet(ALLEGRO_KEY_Q))
     {
+        m.solve();
         // Move player
         if (graphic.keyGet(ALLEGRO_KEY_UP)) m.updatePlayer(TOP);
         if (graphic.keyGet(ALLEGRO_KEY_DOWN)) m.updatePlayer(BOTTOM);
@@ -47,3 +48,4 @@ int main()
 
     return 0;
 }
+
