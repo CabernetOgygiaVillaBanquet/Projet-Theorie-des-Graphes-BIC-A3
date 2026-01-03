@@ -71,6 +71,8 @@ class Maze
         unsigned int getNbCols() const { return this->m_col; }
 
         const std::pair<int, int>& getPlayerPosition() const { return this->m_playerPosition; }
+        void solve();
 };
 
 #endif // MAZE_H_INCLUDED
+
