@@ -229,3 +229,52 @@ void Maze::playSolution(GraphicAllegro5& g, const std::vector<char>& movesSoluti
         g.display();
     }
 }
+
+void Maze::solve(){
+    auto pos = getPlayerPosition();
+    std::pair<int,int> nextPos = pos;
+    bool hasmove = false;
+    for(int i =0; i<DIRECTION_MAX;i++){
+        hasmove =false;
+        std::pair<int,int> temp = nextPos;
+            if(i==0){
+                temp.first -=1;
+                if(isBox(temp)){
+                    pushBox(temp,TOP);
+                    updatePlayer(TOP);
+                    nextPos.first-=1;
+                    hasmove = true;
+                }
+            }
+            else if(i==1){
+                temp.first +=1;
+                if(isBox(temp)){
+                    pushBox(temp,BOTTOM);
+                    updatePlayer(BOTTOM);
+                    nextPos.first+=1;
+                    hasmove = true;
+                }
+            }
+            else if(i==2){
+                temp.second -=1;
+                if(isBox(temp)){
+                     pushBox(temp,LEFT);
+                    updatePlayer(LEFT);
+                    nextPos.second-=1;
+                    hasmove = true;
+                }
+            }
+            else if(i==3){
+                temp.second +=1;
+                if(isBox(temp)){
+                    pushBox(temp,RIGHT);
+                    updatePlayer(RIGHT);
+                    nextPos.second+=1;
+                    hasmove = true;
+                }
+            }
+    }
+    if(!hasmove){
+    updatePlayer(BOTTOM);
+    }
+}
