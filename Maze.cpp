@@ -233,48 +233,59 @@ void Maze::playSolution(GraphicAllegro5& g, const std::vector<char>& movesSoluti
 void Maze::solve(){
     auto pos = getPlayerPosition();
     std::pair<int,int> nextPos = pos;
-    bool hasmove = false;
+    std::pair<int,int> testPos = nextPos;
+    //bool fin = false;
+    std::pair<int,int> BoxPos;
     for(int i =0; i<DIRECTION_MAX;i++){
-        hasmove =false;
         std::pair<int,int> temp = nextPos;
             if(i==0){
                 temp.first -=1;
                 if(isBox(temp)){
-                    pushBox(temp,TOP);
-                    updatePlayer(TOP);
-                    nextPos.first-=1;
-                    hasmove = true;
+                     BoxPos = temp;
                 }
             }
             else if(i==1){
                 temp.first +=1;
                 if(isBox(temp)){
-                    pushBox(temp,BOTTOM);
-                    updatePlayer(BOTTOM);
-                    nextPos.first+=1;
-                    hasmove = true;
+                    BoxPos = temp;
                 }
             }
             else if(i==2){
                 temp.second -=1;
                 if(isBox(temp)){
-                     pushBox(temp,LEFT);
-                    updatePlayer(LEFT);
-                    nextPos.second-=1;
-                    hasmove = true;
+                    BoxPos = temp;
                 }
             }
             else if(i==3){
                 temp.second +=1;
                 if(isBox(temp)){
-                    pushBox(temp,RIGHT);
-                    updatePlayer(RIGHT);
-                    nextPos.second+=1;
-                    hasmove = true;
+                    BoxPos = temp;
                 }
             }
     }
-    if(!hasmove){
-    updatePlayer(BOTTOM);
+    //si colonne pair et possible de déscendre alors déscendre si pair et peut pas déscendre alors monter sinon aller à droite
+    testPos.first+=1;
+    if(!isWall(testPos)&& bas==false && !isBox(testPos)){
+        updatePlayer(BOTTOM);
+        nextPos.second+=1;
     }
+    else if(isWall(testPos)&& bas || isBox(testPos)){
+        updatePlayer(TOP);
+        nextPos.second-=1;
+    }
+    else{
+        testPos.first-=1;
+        testPos.second+=1;
+        if(!isWall(testPos)&& !isBox(testPos)){
+            updatePlayer(RIGHT);
+            nextPos.first+=1;
+        }
+        if(!bas){
+            bas = true;
+        }
+        else{
+            bas=false;
+        }
+    }
+
 }
