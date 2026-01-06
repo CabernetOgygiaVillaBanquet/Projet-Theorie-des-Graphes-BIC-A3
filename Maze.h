@@ -3,6 +3,10 @@
 
 #include <string>
 #include <vector>
+#include <queue>
+#include <stack>
+#include <set>
+#include <iostream>
 #include "GraphicAllegro5.h"
 
 // Max size for the field
@@ -16,6 +20,7 @@ enum class SpriteType : unsigned char
     BOX = '$', BOX_PLACED = '*', GOAL = '.'
 };
 
+// Directions for neighbors
 const std::vector<std::pair<int,int>> neighbours = {
     {-1, 0}, // N (top)
     {1, 0}, // S (bottom)
@@ -46,11 +51,12 @@ class Maze
         std::pair<int, int> m_playerPosition;
         unsigned int m_lig = 0, m_col = 0; // size of field
         char m_playerDirection = RIGHT;
-        bool bas = false;
 
     public:
 
         Maze(const std::string& levelPath);
+        // Constructeur de copie par défaut nécessaire pour les nœuds BFS/DFS
+        Maze(const Maze& other) = default;
         ~Maze() = default;
 
         bool updatePlayer(char dir);
@@ -63,7 +69,6 @@ class Maze
         bool pushBox(const std::pair<int, int>& position, char dir);
 
         bool isSolution() const;
-        void generate(int nbLig, int nbCol);
 
         void playSolution(GraphicAllegro5& g, const std::vector<char>& movesSolution);
         void draw(GraphicAllegro5& g) const;
@@ -72,9 +77,14 @@ class Maze
         unsigned int getNbCols() const { return this->m_col; }
 
         const std::pair<int, int>& getPlayerPosition() const { return this->m_playerPosition; }
-        void solve();
+
+        // --- NOUVELLES METHODES POUR L'IA ---
+        // Génère une signature unique de l'état (Position Joueur + Position Caisses)
+        std::string getSignature() const;
+
+        // Algorithmes de résolution
+        std::vector<char> solveBFS(); // Largeur (Plus court chemin)
+        std::vector<char> solveDFS(); // Profondeur (Chemin rapide mais potentiellement long)
 };
 
 #endif // MAZE_H_INCLUDED
-
-
