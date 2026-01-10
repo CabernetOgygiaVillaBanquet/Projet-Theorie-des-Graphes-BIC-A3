@@ -271,12 +271,12 @@ if(fin){
     int y =nextPos.first - targetBox.first;
     int x = nextPos.second - targetBox.second;
     if(x<0){
-        for(int i =0; i<(x*-1);i++){
+        for(int i =0; i<(x*-1)+1;i++){
             updatePlayer(RIGHT);
         }
     }
     if(x>0){
-        for(int i =0; i<(x);i++){
+        for(int i =0; i<(x+1);i++){
             updatePlayer(LEFT);
         }
     }
@@ -290,9 +290,34 @@ if(fin){
         updatePlayer(TOP);
         }
     }
+    int y_goals = targetBox.first-targetGoal.first;
+    int x_goals = targetBox.second-targetGoal.second;
+    if(x_goals<0){
+        for(int i =0; i<(x_goals*-1)+1;i++){
+            updatePlayer(RIGHT);
+            pushBox(nextPos,RIGHT);
+        }
+    }
+    if(x_goals>0){
+        for(int i =0; i<(x_goals+1);i++){
+            updatePlayer(LEFT);
+            pushBox(nextPos,LEFT);
+        }
+    }
+    if(y_goals<0){
+        for(int i =0; i<(y_goals*-1);i++){
+            updatePlayer(BOTTOM);
+            pushBox(nextPos,BOTTOM);
+        }
+    }
+    if(y_goals>0){
+        for(int i =0;i<y_goals;i++){
+        updatePlayer(TOP);
+        pushBox(nextPos,TOP);
+        }
+    }
 }
 }
-
 
 // ---------------- ALGORITHMES IA ----------------
 
@@ -482,5 +507,6 @@ void Maze::solvNaif(){
         }
     }
 }
+
 
 
