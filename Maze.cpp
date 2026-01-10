@@ -190,37 +190,47 @@ void Maze::solve(){
     auto pos = getPlayerPosition();
     std::pair<int,int> nextPos = pos;
     std::pair<int,int> testPos = nextPos;
-    //bool fin = false;
-
-    std::pair<int,int> BoxPos;
     for(int i =0; i<DIRECTION_MAX;i++){
         std::pair<int,int> temp = nextPos;
             if(i==0){
                 temp.first -=1;
                 if(isBox(temp)){
-                     BoxPos = temp;
+                     boxes.push_back(temp);
+                }
+                if(isGoal(temp)){
+                    goals.push_back(temp);
                 }
             }
             else if(i==1){
                 temp.first +=1;
                 if(isBox(temp)){
-                    BoxPos = temp;
+                    boxes.push_back(temp);
+                }
+                if(isGoal(temp)){
+                    goals.push_back(temp);
                 }
             }
             else if(i==2){
                 temp.second -=1;
                 if(isBox(temp)){
-                    BoxPos = temp;
+                    boxes.push_back(temp);
+                }
+                if(isGoal(temp)){
+                    goals.push_back(temp);
                 }
             }
             else if(i==3){
                 temp.second +=1;
                 if(isBox(temp)){
-                    BoxPos = temp;
+                    boxes.push_back(temp);
+                }
+                if(isGoal(temp)){
+                    goals.push_back(temp);
                 }
             }
     }
     //si colonne pair et possible de déscendre alors déscendre si pair et peut pas déscendre alors monter sinon aller à droite
+    if(!fin){
     testPos.first+=1;
     if(!isWall(testPos)&& !bas && !isBox(testPos)){
         updatePlayer(BOTTOM);
@@ -245,11 +255,44 @@ void Maze::solve(){
             updatePlayer(RIGHT);
             nextPos.second+=1;
         }
+        else if(isWall(testPos)){
+            fin =true;
+        }
         bas = true;
     }
-
-
 }
+if(fin){
+    boxes.sort();
+    goals.sort();
+    boxes.unique();
+    goals.unique();
+    std::pair<int,int> targetBox = boxes.front();
+    std::pair<int,int> targetGoal = goals.front();
+    int y =nextPos.first - targetBox.first;
+    int x = nextPos.second - targetBox.second;
+    if(x<0){
+        for(int i =0; i<(x*-1);i++){
+            updatePlayer(RIGHT);
+        }
+    }
+    if(x>0){
+        for(int i =0; i<(x);i++){
+            updatePlayer(LEFT);
+        }
+    }
+    if(y<0){
+        for(int i =0; i<(y*-1);i++){
+            updatePlayer(BOTTOM);
+        }
+    }
+    if(y>0){
+        for(int i =0;i<y;i++){
+        updatePlayer(TOP);
+        }
+    }
+}
+}
+
 
 // ---------------- ALGORITHMES IA ----------------
 
@@ -439,4 +482,5 @@ void Maze::solvNaif(){
         }
     }
 }
+
 
