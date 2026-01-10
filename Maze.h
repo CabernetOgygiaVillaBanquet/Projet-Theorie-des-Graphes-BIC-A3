@@ -77,6 +77,7 @@ class Maze
         unsigned int getNbCols() const { return this->m_col; }
 
         const std::pair<int, int>& getPlayerPosition() const { return this->m_playerPosition; }
+        void solve();
 
         // --- NOUVELLES METHODES POUR L'IA ---
         // Génère une signature unique de l'état (Position Joueur + Position Caisses)
@@ -88,3 +89,4 @@ class Maze
 };
 
 #endif // MAZE_H_INCLUDED
+
