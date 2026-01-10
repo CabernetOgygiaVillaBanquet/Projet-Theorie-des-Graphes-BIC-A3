@@ -51,6 +51,7 @@ class Maze
         std::pair<int, int> m_playerPosition;
         unsigned int m_lig = 0, m_col = 0; // size of field
         char m_playerDirection = RIGHT;
+        bool bas = false;
 
     public:
 
@@ -89,4 +90,5 @@ class Maze
 };
 
 #endif // MAZE_H_INCLUDED
+
 
