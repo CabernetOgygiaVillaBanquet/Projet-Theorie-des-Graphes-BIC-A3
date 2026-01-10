@@ -301,3 +301,76 @@ std::vector<char> Maze::solveDFS()
     std::cout << "DFS: No solution found." << std::endl;
     return {};
 }
+
+void Maze::solvNaif(){
+    for(int i = 0; i < DIRECTION_MAX; i++){
+        if(i == 0){
+                updatePlayer(TOP);
+            for(int j =0; j < DIRECTION_MAX; j++){
+                if(j==0){
+                    updatePlayer(TOP);
+                }
+                else if(j==1){
+                    updatePlayer(BOTTOM);
+                }
+                else if(j==2){
+                    updatePlayer(LEFT);
+                }
+                else if(j==3){
+                    updatePlayer(RIGHT);
+                }
+            }
+        }
+        else if(i == 1){
+                updatePlayer(BOTTOM);
+            for(int j =0; j <DIRECTION_MAX; j++){
+                if(j==0){
+                    updatePlayer(TOP);
+                }
+                else if(j==1){
+                    updatePlayer(BOTTOM);
+                }
+                else if(j==2){
+                    updatePlayer(LEFT);
+                }
+                else if(j==3){
+                    updatePlayer(RIGHT);
+                }
+            }
+        }
+        else if(i == 2){
+                updatePlayer(BOTTOM);
+            for(int j =0; j <DIRECTION_MAX; j++){
+                if(j==0){
+                    updatePlayer(TOP);
+                }
+                else if(j==1){
+                    updatePlayer(BOTTOM);
+                }
+                else if(j==2){
+                    updatePlayer(LEFT);
+                }
+                else if(j==3){
+                    updatePlayer(RIGHT);
+                }
+            }
+        }
+        else if(i == 3){
+                updatePlayer(BOTTOM);
+            for(int j =0; j <DIRECTION_MAX; j++){
+                if(j==0){
+                    updatePlayer(TOP);
+                }
+                else if(j==1){
+                    updatePlayer(BOTTOM);
+                }
+                else if(j==2){
+                    updatePlayer(LEFT);
+                }
+                else if(j==3){
+                    updatePlayer(RIGHT);
+                }
+            }
+        }
+    }
+}
