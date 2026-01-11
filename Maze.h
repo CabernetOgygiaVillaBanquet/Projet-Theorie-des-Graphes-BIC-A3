@@ -6,6 +6,7 @@
 #include <queue>
 #include <stack>
 #include <set>
+#include <list>       // [FIX 1] Added missing include
 #include <iostream>
 #include "GraphicAllegro5.h"
 
@@ -51,14 +52,16 @@ class Maze
         std::pair<int, int> m_playerPosition;
         unsigned int m_lig = 0, m_col = 0; // size of field
         char m_playerDirection = RIGHT;
+        
         bool fin = false;
+        bool bas = false; // [FIX 2] Added missing member variable 'bas'
+        
         std::list<std::pair<int,int>> boxes;
         std::list<std::pair<int,int>> goals;
 
     public:
 
         Maze(const std::string& levelPath);
-        // Constructeur de copie par défaut nécessaire pour les nœuds BFS/DFS
         Maze(const Maze& other) = default;
         ~Maze() = default;
 
@@ -80,18 +83,16 @@ class Maze
         unsigned int getNbCols() const { return this->m_col; }
 
         const std::pair<int, int>& getPlayerPosition() const { return this->m_playerPosition; }
+        
         void solve();
+        void solvNaif(); // [FIX 3] Added missing prototype
 
         // --- NOUVELLES METHODES POUR L'IA ---
-        // Génère une signature unique de l'état (Position Joueur + Position Caisses)
         std::string getSignature() const;
 
         // Algorithmes de résolution
-        std::vector<char> solveBFS(); // Largeur (Plus court chemin)
-        std::vector<char> solveDFS(); // Profondeur (Chemin rapide mais potentiellement long)
+        std::vector<char> solveBFS(); 
+        std::vector<char> solveDFS(); 
 };
 
 #endif // MAZE_H_INCLUDED
-
-
-
