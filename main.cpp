@@ -2,78 +2,60 @@
 #include "GraphicAllegro5.h"
 #include <iostream>
 
-GraphicAllegro5 graphic(1024, 768);
+GraphicAllegro5 g(1024, 768);
 
-int main()
-{
-    // Assurez-vous que le fichier existe dans le dossier de l'exécutable
-    const std::string level = "levels/Easy1.txt";
+int main() {
+    std::string mapFile = "levels/Easy3.txt";
 
     try {
-        Maze m(level);
-        graphic.show();
+        Maze game(mapFile);
+        g.show();
 
-        std::cout << "--- COMMANDES ---" << std::endl;
-        std::cout << "Fleches : Bouger" << std::endl;
-        std::cout << "R : Reset niveau" << std::endl;
-        std::cout << "B : Solve BFS (Largeur - Court)" << std::endl;
-        std::cout << "D : Solve DFS (Profondeur - Long)" << std::endl;
-        std::cout << "-----------------" << std::endl;
+        std::cout << "=== SOKOBAN ===" << std::endl;
+        std::cout << "[Arrows] Move" << std::endl;
+        std::cout << "[B] BFS Solver" << std::endl;
+        std::cout << "[D] DFS Solver" << std::endl;
+        std::cout << "[R] Reset" << std::endl;
 
-        while (!graphic.keyGet(ALLEGRO_KEY_ESCAPE) && !graphic.keyGet(ALLEGRO_KEY_Q))
-        {
-            // Contrôles manuels
-            m.solve();
-            if (graphic.keyGet(ALLEGRO_KEY_UP)) m.updatePlayer(TOP);
-            if (graphic.keyGet(ALLEGRO_KEY_DOWN)) m.updatePlayer(BOTTOM);
-            if (graphic.keyGet(ALLEGRO_KEY_LEFT)) m.updatePlayer(LEFT);
-            if (graphic.keyGet(ALLEGRO_KEY_RIGHT)) m.updatePlayer(RIGHT);
+        bool running = true;
+        while(running) {
+            // Quit
+            if (g.keyGet(ALLEGRO_KEY_ESCAPE)) running = false;
 
-            // Touche 'C' : Vérification manuelle
-            if (graphic.keyGet(ALLEGRO_KEY_C))
-            {
-                if (m.isSolution()) { std::cout << "Level solved !" << std::endl; }
-                else { std::cout << "Level not solved !" << std::endl; }
+            // Manual moves
+            if (g.keyGet(ALLEGRO_KEY_UP)) game.update(TOP);
+            if (g.keyGet(ALLEGRO_KEY_DOWN)) game.update(BOTTOM);
+            if (g.keyGet(ALLEGRO_KEY_LEFT)) game.update(LEFT);
+            if (g.keyGet(ALLEGRO_KEY_RIGHT)) game.update(RIGHT);
+
+            // Solvers
+            if (g.keyGet(ALLEGRO_KEY_B)) {
+                game = Maze(mapFile); // clean start
+                auto path = game.solveBFS();
+                if (!path.empty()) game.showSolution(g, path);
+                game = Maze(mapFile);
             }
 
-            // Touche 'B' : Résolution BFS
-            if (graphic.keyGet(ALLEGRO_KEY_B))
-            {
-                // On recharge le niveau pour partir d'un état propre
-                m = Maze(level);
-                std::vector<char> solution = m.solveBFS();
-                if (!solution.empty()) {
-                    m.playSolution(graphic, solution);
-                }
+            if (g.keyGet(ALLEGRO_KEY_D)) {
+                game = Maze(mapFile);
+                auto path = game.solveDFS();
+                if (!path.empty()) game.showSolution(g, path);
+                game = Maze(mapFile);
             }
 
-            // Touche 'D' : Résolution DFS
-            if (graphic.keyGet(ALLEGRO_KEY_D))
-            {
-                m = Maze(level);
-                std::vector<char> solution = m.solveDFS();
-                if (!solution.empty()) {
-                    m.playSolution(graphic, solution);
-                }
+            if (g.keyGet(ALLEGRO_KEY_R)) {
+                game = Maze(mapFile);
             }
 
-            // Touche 'R' : Reset
-            if (graphic.keyGet(ALLEGRO_KEY_R))
-            {
-                m = Maze(level);
-            }
-
-            // Affichage
-            graphic.clear();
-            m.draw(graphic);
-            graphic.display();
+            // Draw
+            g.clear();
+            game.draw(g);
+            g.display();
         }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Erreur : " << e.what() << std::endl;
-        return -1;
-    }
 
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal Error: " << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
-
