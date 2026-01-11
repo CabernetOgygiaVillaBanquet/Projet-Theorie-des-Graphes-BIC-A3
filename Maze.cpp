@@ -1,512 +1,282 @@
 #include "Maze.h"
-#include "GraphicAllegro5.h"
 #include <fstream>
-#include <exception>
 #include <sstream>
 
-// Structure interne pour stocker un état dans la File (BFS) ou Pile (DFS)
-struct Node {
-    Maze state;              // L'état complet du jeu à cet instant
-    std::vector<char> path;  // La liste des mouvements pour arriver ici
+// Directions offsets: Haut, Bas, Gauche, Droite
+const int DY[] = {-1, 1, 0, 0};
+const int DX[] = {0, 0, -1, 1};
+
+struct StateNode {
+    Maze maze;
+    std::vector<char> history;
 };
 
-Maze::Maze(const std::string& levelPath)
-{
+Maze::Maze(const std::string& path) {
+    std::ifstream f(path);
+    if (!f.is_open()) throw std::runtime_error("Fichier introuvable: " + path);
+
     std::vector<std::string> lines;
-    std::string line;
-    std::ifstream iss(levelPath);
-
-    if (!iss.is_open()) {
-        throw std::runtime_error("Impossible d'ouvrir le fichier : " + levelPath);
+    std::string buf;
+    while (std::getline(f, buf)) {
+        lines.push_back(buf);
+        if (buf.size() > (size_t)w) w = buf.size();
     }
+    h = lines.size();
 
-    while (std::getline(iss, line))
-    {
-        lines.push_back(line);
-        this->m_lig++;
-        this->m_col = (this->m_col < line.size() ? line.size() : this->m_col);
-    }
+    if (w > MAX_W || h > MAX_H) throw std::length_error("Map trop grande");
 
-    this->m_field.resize(this->m_lig, std::vector<Square>(this->m_col));
+    grid.resize(h, std::vector<Square>(w));
 
-    if (this->m_col <= NB_MAX_WIDTH && this->m_lig <= NB_MAX_HEIGHT)
-    {
-        for (unsigned int i=0; i<lines.size(); i++)
-        {
-            for (unsigned int j=0; j<this->m_col; j++)
-            {
-                if (j < lines[i].size())
-                {
-                    Square s;
-                    s.position = std::make_pair(i, j);
-                    s.sprite = (SpriteType)lines[i][j];
-                    this->m_field[i][j] = s;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            Square& s = grid[y][x];
+            s.pos = {y, x};
 
-                    if (s.sprite == SpriteType::PLAYER || s.sprite == SpriteType::PLAYER_ON_GOAL)
-                    {
-                        this->m_playerPosition = std::make_pair(i, j);
-                        if (s.sprite == SpriteType::PLAYER_ON_GOAL)
-                        {
-                            this->m_field[i][j].sprite = SpriteType::GOAL;
-                        }
-                    }
-                }
-                else
-                {
-                    Square s;
-                    s.position = std::make_pair(i, j);
-                    s.sprite = SpriteType::GROUND;
-                    this->m_field[i][j] = s;
-                }
+            char c = (x < (int)lines[y].size()) ? lines[y][x] : ' ';
+            s.type = (SpriteType)c;
+
+            if (s.type == SpriteType::PLAYER || s.type == SpriteType::PLAYER_ON_GOAL) {
+                playerPos = {y, x};
+                // Si sur goal, on remet le goal en dessous
+                if (s.type == SpriteType::PLAYER_ON_GOAL) s.type = SpriteType::GOAL;
+                else s.type = SpriteType::GROUND; // Sinon sol
             }
         }
     }
-    else
-    {
-        throw std::out_of_range("Width or height too large !");
-    }
+    computeDeadlocks();
 }
 
-void Maze::draw(GraphicAllegro5& g) const
-{
-    for (unsigned int i=0; i<this->m_field.size(); ++i)
-    {
-        for (unsigned int j=0; j<this->m_field[i].size(); ++j)
-        {
-            const auto s = this->m_field[i][j];
-            if (s.sprite == SpriteType::WALL) g.drawT(g.getSprite(BITMAP_WALL), j, i);
-            else if (s.sprite == SpriteType::BOX_PLACED) g.drawT(g.getSprite(BITMAP_BOX_PLACED), j, i);
-            else if (s.sprite == SpriteType::BOX) g.drawT(g.getSprite(BITMAP_BOX), j, i);
-            else if (s.sprite == SpriteType::GOAL) g.drawT(g.getSprite(BITMAP_GOAL), j, i);
+// Algorithme de detection des deadlocks
+void Maze::computeDeadlocks() {
+    deadMap.assign(h, std::vector<bool>(w, false));
+    std::queue<std::pair<int, int>> q;
+
+    // 1. On marque tout ce qui n'est pas mur comme "mort" par defaut
+    // sauf les goals qui sont "vivants"
+    for(int y=0; y<h; y++) {
+        for(int x=0; x<w; x++) {
+            if (!isWall(y, x)) deadMap[y][x] = true;
+            if (isGoal(y, x)) {
+                deadMap[y][x] = false;
+                q.push({y, x});
+            }
         }
     }
-    g.drawT(g.getSpritePlayer(this->m_playerDirection), this->m_playerPosition.second, this->m_playerPosition.first);
-}
 
-bool Maze::isWall(const std::pair<int, int>& position) const
-{
-    return this->m_field[position.first][position.second].sprite == SpriteType::WALL;
-}
+    // 2. On remonte depuis les goals (Pull)
+    while(!q.empty()) {
+        auto curr = q.front(); q.pop();
+        int cy = curr.first;
+        int cx = curr.second;
 
-bool Maze::isBox(const std::pair<int, int>& position) const
-{
-    auto s = this->m_field[position.first][position.second].sprite;
-    return (s == SpriteType::BOX || s == SpriteType::BOX_PLACED);
-}
+        for(int i=0; i<4; i++) {
+            // Case precedente (d'ou vient la caisse)
+            int py = cy - DY[i];
+            int px = cx - DX[i];
 
-bool Maze::isGoal(const std::pair<int, int>& position) const
-{
-    auto s = this->m_field[position.first][position.second].sprite;
-    return (s == SpriteType::GOAL || s == SpriteType::BOX_PLACED);
-}
+            // Case joueur (il doit etre derriere pour pousser)
+            int ppy = py - DY[i];
+            int ppx = px - DX[i];
 
-bool Maze::isFree(const std::pair<int, int>& position) const
-{
-    auto s = this->m_field[position.first][position.second].sprite;
-    return (s == SpriteType::GROUND || s == SpriteType::GOAL);
-}
+            if (py < 0 || py >= h || px < 0 || px >= w) continue;
+            if (ppy < 0 || ppy >= h || ppx < 0 || ppx >= w) continue;
 
-bool Maze::isSolution() const
-{
-    for (unsigned int i=0; i<this->m_field.size(); ++i)
-    {
-        for (unsigned int j=0; j<this->m_field[i].size(); ++j)
-        {
-            if (this->m_field[i][j].sprite == SpriteType::BOX) return false;
+            if (isWall(py, px) || isWall(ppy, ppx)) continue;
+
+            // Si c'etait mort, on le ressuscite et on continue
+            if (deadMap[py][px]) {
+                deadMap[py][px] = false;
+                q.push({py, px});
+            }
         }
     }
+}
+
+bool Maze::isDead(int y, int x) const {
+    if (y < 0 || y >= h || x < 0 || x >= w) return true;
+    return deadMap[y][x];
+}
+
+void Maze::draw(GraphicAllegro5& g) const {
+    for(int y=0; y<h; y++) {
+        for(int x=0; x<w; x++) {
+            switch(grid[y][x].type) {
+                case SpriteType::WALL: g.drawT(g.getSprite(BITMAP_WALL), x, y); break;
+                case SpriteType::BOX_PLACED: g.drawT(g.getSprite(BITMAP_BOX_PLACED), x, y); break;
+                case SpriteType::BOX: g.drawT(g.getSprite(BITMAP_BOX), x, y); break;
+                case SpriteType::GOAL: g.drawT(g.getSprite(BITMAP_GOAL), x, y); break;
+                default: break;
+            }
+        }
+    }
+    g.drawT(g.getSpritePlayer(playerDir), playerPos.second, playerPos.first);
+}
+
+// Helpers compacts
+bool Maze::isWall(int y, int x) const { return grid[y][x].type == SpriteType::WALL; }
+bool Maze::isBox(int y, int x) const {
+    auto t = grid[y][x].type;
+    return t == SpriteType::BOX || t == SpriteType::BOX_PLACED;
+}
+bool Maze::isGoal(int y, int x) const {
+    auto t = grid[y][x].type;
+    return t == SpriteType::GOAL || t == SpriteType::BOX_PLACED;
+}
+
+bool Maze::isWon() const {
+    for(const auto& row : grid)
+        for(const auto& s : row)
+            if(s.type == SpriteType::BOX) return false;
     return true;
 }
 
-bool Maze::pushBox(const std::pair<int, int>& position, char dir)
-{
-    auto newPosition = position;
-    newPosition.first += neighbours[dir].first;
-    newPosition.second += neighbours[dir].second;
+bool Maze::moveBox(const std::pair<int, int>& pos, char dir) {
+    int ny = pos.first + DY[(int)dir];
+    int nx = pos.second + DX[(int)dir];
 
-    if (this->isWall(newPosition) || !this->isFree(newPosition))
-        return false;
+    // Check collisions
+    if (isWall(ny, nx)) return false;
 
-    // Mise à jour case actuelle (départ caisse)
-    if (this->m_field[position.first][position.second].sprite == SpriteType::BOX_PLACED)
-        this->m_field[position.first][position.second].sprite = SpriteType::GOAL;
+    // Check si case occupée (par une autre caisse)
+    auto t = grid[ny][nx].type;
+    if (t != SpriteType::GROUND && t != SpriteType::GOAL) return false;
+
+    // Update case départ
+    if (grid[pos.first][pos.second].type == SpriteType::BOX_PLACED)
+        grid[pos.first][pos.second].type = SpriteType::GOAL;
     else
-        this->m_field[position.first][position.second].sprite = SpriteType::GROUND;
+        grid[pos.first][pos.second].type = SpriteType::GROUND;
 
-    // Mise à jour nouvelle case (arrivée caisse)
-    if (this->isGoal(newPosition))
-        this->m_field[newPosition.first][newPosition.second].sprite = SpriteType::BOX_PLACED;
-    else
-        this->m_field[newPosition.first][newPosition.second].sprite = SpriteType::BOX;
+    // Update case arrivée
+    if (isGoal(ny, nx)) grid[ny][nx].type = SpriteType::BOX_PLACED;
+    else grid[ny][nx].type = SpriteType::BOX;
 
-    this->m_playerDirection = dir;
+    playerDir = dir;
     return true;
 }
 
-bool Maze::updatePlayer(char dir)
-{
-    if (dir < 0 || dir > DIRECTION_MAX) return false;
+bool Maze::update(char dir) {
+    if (dir < 0 || dir > 3) return false;
+
+    int ny = playerPos.first + DY[(int)dir];
+    int nx = playerPos.second + DX[(int)dir];
+
+    if (isWall(ny, nx)) return false;
 
     bool moved = false;
-    auto newPositionPlayer = this->getPlayerPosition();
-    newPositionPlayer.first += neighbours[dir].first;
-    newPositionPlayer.second += neighbours[dir].second;
-
-    if (this->isWall(newPositionPlayer)) return false;
-
-    if (!this->isBox(newPositionPlayer))
-    {
+    if (!isBox(ny, nx)) {
         moved = true;
-    }
-    else if (this->pushBox(newPositionPlayer, dir))
-    {
-        moved = true;
+    } else {
+        if (moveBox({ny, nx}, dir)) moved = true;
     }
 
-    if (moved)
-    {
-        this->m_playerPosition = newPositionPlayer;
-        this->m_playerDirection = dir;
-        return (this->isSolution());
+    if (moved) {
+        playerPos = {ny, nx};
+        playerDir = dir;
+        return isWon();
     }
-
     return false;
 }
 
-void Maze::playSolution(GraphicAllegro5& g, const std::vector<char>& movesSolution)
-{
-    std::cout << "Replaying solution... (" << movesSolution.size() << " steps)" << std::endl;
-    for (const auto& move : movesSolution)
-    {
+void Maze::showSolution(GraphicAllegro5& g, const std::vector<char>& path) {
+    std::cout << "Demo solution: " << path.size() << " steps." << std::endl;
+    for(char m : path) {
         g.clear();
-        this->updatePlayer(move);
-        this->draw(g);
+        update(m);
+        draw(g);
         g.display();
-        al_rest(0.1); // Petite pause pour voir l'animation
+        al_rest(0.05);
     }
 }
 
-void Maze::solve(){
-    auto pos = getPlayerPosition();
-    std::pair<int,int> nextPos = pos;
-    std::pair<int,int> testPos = nextPos;
-    for(int i =0; i<DIRECTION_MAX;i++){
-        std::pair<int,int> temp = nextPos;
-            if(i==0){
-                temp.first -=1;
-                if(isBox(temp)){
-                     boxes.push_back(temp);
-                }
-                if(isGoal(temp)){
-                    goals.push_back(temp);
-                }
-            }
-            else if(i==1){
-                temp.first +=1;
-                if(isBox(temp)){
-                    boxes.push_back(temp);
-                }
-                if(isGoal(temp)){
-                    goals.push_back(temp);
-                }
-            }
-            else if(i==2){
-                temp.second -=1;
-                if(isBox(temp)){
-                    boxes.push_back(temp);
-                }
-                if(isGoal(temp)){
-                    goals.push_back(temp);
-                }
-            }
-            else if(i==3){
-                temp.second +=1;
-                if(isBox(temp)){
-                    boxes.push_back(temp);
-                }
-                if(isGoal(temp)){
-                    goals.push_back(temp);
-                }
-            }
-    }
-    //si colonne pair et possible de déscendre alors déscendre si pair et peut pas déscendre alors monter sinon aller à droite
-    if(!fin){
-    testPos.first+=1;
-    if(!isWall(testPos)&& !bas && !isBox(testPos)){
-        updatePlayer(BOTTOM);
-        nextPos.first+=1;
-    }
-
-    else if(bas){
-        testPos.first-=2;
-        if(!isWall(testPos) && !isBox(testPos)){
-          updatePlayer(TOP);
-          nextPos.first-=1;
-        }
-        else{
-            bas = false;
-        }
-
-    }
-    else{
-        testPos.first-=1;
-        testPos.second+=1;
-        if(!isWall(testPos)&& !isBox(testPos)){
-            updatePlayer(RIGHT);
-            nextPos.second+=1;
-        }
-        else if(isWall(testPos)){
-            fin =true;
-        }
-        bas = true;
-    }
-}
-if(fin){
-    boxes.sort();
-    goals.sort();
-    boxes.unique();
-    goals.unique();
-    std::pair<int,int> targetBox = boxes.front();
-    std::pair<int,int> targetGoal = goals.front();
-    int y =nextPos.first - targetBox.first;
-    int x = nextPos.second - targetBox.second;
-    if(x<0){
-        for(int i =0; i<(x*-1)+1;i++){
-            updatePlayer(RIGHT);
-        }
-    }
-    if(x>0){
-        for(int i =0; i<(x+1);i++){
-            updatePlayer(LEFT);
-        }
-    }
-    if(y<0){
-        for(int i =0; i<(y*-1);i++){
-            updatePlayer(BOTTOM);
-        }
-    }
-    if(y>0){
-        for(int i =0;i<y;i++){
-        updatePlayer(TOP);
-        }
-    }
-    int y_goals = targetBox.first-targetGoal.first;
-    int x_goals = targetBox.second-targetGoal.second;
-    if(x_goals<0){
-        for(int i =0; i<(x_goals*-1)+1;i++){
-            updatePlayer(RIGHT);
-            pushBox(nextPos,RIGHT);
-        }
-    }
-    if(x_goals>0){
-        for(int i =0; i<(x_goals+1);i++){
-            updatePlayer(LEFT);
-            pushBox(nextPos,LEFT);
-        }
-    }
-    if(y_goals<0){
-        for(int i =0; i<(y_goals*-1);i++){
-            updatePlayer(BOTTOM);
-            pushBox(nextPos,BOTTOM);
-        }
-    }
-    if(y_goals>0){
-        for(int i =0;i<y_goals;i++){
-        updatePlayer(TOP);
-        pushBox(nextPos,TOP);
-        }
-    }
-}
+std::string Maze::hash() const {
+    std::string s = std::to_string(playerPos.first) + ":" + std::to_string(playerPos.second);
+    for(const auto& v : grid) for(const auto& sq : v) s += (char)sq.type;
+    return s;
 }
 
-// ---------------- ALGORITHMES IA ----------------
-
-std::string Maze::getSignature() const {
-    // Création d'une clé unique pour l'état actuel
-    std::string sig = "";
-    // Position du joueur
-    sig += std::to_string(m_playerPosition.first) + "," + std::to_string(m_playerPosition.second) + ";";
-    // Position des caisses (on parcourt toute la grille)
-    for(const auto& row : m_field) {
-        for(const auto& square : row) {
-            // Optimisation : seuls les caisses et murs importent
-            sig += (char)square.sprite;
-        }
-    }
-    return sig;
-}
-
-// --- BFS : Breadth-First Search (Parcours en Largeur) ---
-// Utilise une FILE (Queue). Trouve le chemin le plus court.
-std::vector<char> Maze::solveBFS()
-{
-    std::queue<Node> q;
+std::vector<char> Maze::solveBFS() {
+    std::queue<StateNode> q;
     std::set<std::string> visited;
 
-    // État initial
-    Node startNode = { *this, {} };
-    q.push(startNode);
-    visited.insert(this->getSignature());
+    q.push({ *this, {} });
+    visited.insert(hash());
 
-    std::cout << "Starting BFS..." << std::endl;
+    std::cout << "Start BFS..." << std::endl;
 
-    while (!q.empty())
-    {
-        Node current = q.front();
-        q.pop();
+    while(!q.empty()) {
+        StateNode curr = q.front(); q.pop();
 
-        if (current.state.isSolution()) {
-            std::cout << "BFS Found solution! Length: " << current.path.size() << std::endl;
-            return current.path;
+        if (curr.maze.isWon()) {
+            std::cout << "BFS Found! " << curr.history.size() << " moves." << std::endl;
+            return curr.history;
         }
 
-        // Tester les 4 directions : TOP(0), BOTTOM(1), LEFT(2), RIGHT(3)
-        for (char dir = 0; dir < 4; ++dir)
-        {
-            Node nextNode = current; // Copie de l'état (nécessaire pour simuler)
+        for(char d=0; d<4; d++) {
+            Maze next = curr.maze;
+            auto posBefore = next.getPlayerPos();
+            next.update(d);
 
-            // On sauvegarde la pos avant mouvement pour vérifier si on a bougé
-            auto oldPos = nextNode.state.getPlayerPosition();
-            nextNode.state.updatePlayer(dir);
-            auto newPos = nextNode.state.getPlayerPosition();
+            // Si pas bougé, inutile de traiter
+            if (posBefore == next.getPlayerPos()) continue;
 
-            // Si le joueur a effectivement bougé (pas de mur)
-            if (oldPos != newPos)
-            {
-                std::string sig = nextNode.state.getSignature();
-                // Si état jamais visité
-                if (visited.find(sig) == visited.end()) {
-                    visited.insert(sig);
-                    nextNode.path.push_back(dir);
-                    q.push(nextNode);
-                }
+            // Check Deadlock
+            int boxY = next.getPlayerPos().first + DY[(int)d];
+            int boxX = next.getPlayerPos().second + DX[(int)d];
+
+            // Si on a poussé une caisse SUR une case morte -> poubelle
+            if (next.isBox(boxY, boxX) && isDead(boxY, boxX)) continue;
+
+            std::string key = next.hash();
+            if (visited.find(key) == visited.end()) {
+                visited.insert(key);
+                std::vector<char> nextPath = curr.history;
+                nextPath.push_back(d);
+                q.push({ next, nextPath });
             }
         }
     }
-
-    std::cout << "BFS: No solution found." << std::endl;
     return {};
 }
 
-// --- DFS : Depth-First Search (Parcours en Profondeur) ---
-// Utilise une PILE (Stack). Ne garantit PAS le chemin le plus court.
-std::vector<char> Maze::solveDFS()
-{
-    std::stack<Node> s;
+std::vector<char> Maze::solveDFS() {
+    std::stack<StateNode> s;
     std::set<std::string> visited;
 
-    Node startNode = { *this, {} };
-    s.push(startNode);
-    visited.insert(this->getSignature());
+    s.push({ *this, {} });
+    visited.insert(hash());
 
-    std::cout << "Starting DFS..." << std::endl;
+    std::cout << "Start DFS..." << std::endl;
 
-    while (!s.empty())
-    {
-        Node current = s.top();
-        s.pop();
+    while(!s.empty()) {
+        StateNode curr = s.top(); s.pop();
 
-        if (current.state.isSolution()) {
-            std::cout << "DFS Found solution! Length: " << current.path.size() << std::endl;
-            return current.path;
+        if (curr.maze.isWon()) {
+            std::cout << "DFS Found! " << curr.history.size() << " moves." << std::endl;
+            return curr.history;
         }
 
-        for (char dir = 0; dir < 4; ++dir)
-        {
-            Node nextNode = current;
+        for(char d=0; d<4; d++) {
+            Maze next = curr.maze;
+            auto p1 = next.getPlayerPos();
+            next.update(d);
 
-            auto oldPos = nextNode.state.getPlayerPosition();
-            nextNode.state.updatePlayer(dir);
-            auto newPos = nextNode.state.getPlayerPosition();
+            if (p1 == next.getPlayerPos()) continue;
 
-            if (oldPos != newPos)
-            {
-                std::string sig = nextNode.state.getSignature();
-                if (visited.find(sig) == visited.end()) {
-                    visited.insert(sig);
-                    nextNode.path.push_back(dir);
-                    s.push(nextNode);
-                }
+            // Deadlock check pruning
+            int by = next.getPlayerPos().first + DY[(int)d];
+            int bx = next.getPlayerPos().second + DX[(int)d];
+
+            if (next.isBox(by, bx) && isDead(by, bx)) continue;
+
+            std::string key = next.hash();
+            if (visited.find(key) == visited.end()) {
+                visited.insert(key);
+                std::vector<char> nextPath = curr.history;
+                nextPath.push_back(d);
+                s.push({ next, nextPath });
             }
         }
     }
-
-    std::cout << "DFS: No solution found." << std::endl;
     return {};
 }
-
-void Maze::solvNaif(){
-    for(int i = 0; i < DIRECTION_MAX; i++){
-        if(i == 0){
-                updatePlayer(TOP);
-            for(int j =0; j < DIRECTION_MAX; j++){
-                if(j==0){
-                    updatePlayer(TOP);
-                }
-                else if(j==1){
-                    updatePlayer(BOTTOM);
-                }
-                else if(j==2){
-                    updatePlayer(LEFT);
-                }
-                else if(j==3){
-                    updatePlayer(RIGHT);
-                }
-            }
-        }
-        else if(i == 1){
-                updatePlayer(BOTTOM);
-            for(int j =0; j <DIRECTION_MAX; j++){
-                if(j==0){
-                    updatePlayer(TOP);
-                }
-                else if(j==1){
-                    updatePlayer(BOTTOM);
-                }
-                else if(j==2){
-                    updatePlayer(LEFT);
-                }
-                else if(j==3){
-                    updatePlayer(RIGHT);
-                }
-            }
-        }
-        else if(i == 2){
-                updatePlayer(BOTTOM);
-            for(int j =0; j <DIRECTION_MAX; j++){
-                if(j==0){
-                    updatePlayer(TOP);
-                }
-                else if(j==1){
-                    updatePlayer(BOTTOM);
-                }
-                else if(j==2){
-                    updatePlayer(LEFT);
-                }
-                else if(j==3){
-                    updatePlayer(RIGHT);
-                }
-            }
-        }
-        else if(i == 3){
-                updatePlayer(BOTTOM);
-            for(int j =0; j <DIRECTION_MAX; j++){
-                if(j==0){
-                    updatePlayer(TOP);
-                }
-                else if(j==1){
-                    updatePlayer(BOTTOM);
-                }
-                else if(j==2){
-                    updatePlayer(LEFT);
-                }
-                else if(j==3){
-                    updatePlayer(RIGHT);
-                }
-            }
-        }
-    }
-}
-
-
-
