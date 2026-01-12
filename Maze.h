@@ -73,7 +73,10 @@ public:
     std::string hash() const; // Pour le visited set
     std::vector<char> solveBFS();
     std::vector<char> solveDFS();
+    void solve();
+    void solveNaif();
 };
 
 #endif
+
 
