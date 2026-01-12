@@ -19,6 +19,8 @@ int main() {
 
         bool running = true;
         while(running) {
+            //m.solve(); //Léna
+            //m.solveNaif(); //Antoine
             // Quit
             if (g.keyGet(ALLEGRO_KEY_ESCAPE)) running = false;
 
@@ -59,3 +61,4 @@ int main() {
     }
     return 0;
 }
+
