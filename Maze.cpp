@@ -280,3 +280,174 @@ std::vector<char> Maze::solveDFS() {
     }
     return {};
 }
+
+void Maze::solve(){
+    auto pos = getPlayerPosition();
+    std::pair<int,int> nextPos = pos;
+    std::pair<int,int> testPos = nextPos;
+    if(!fin){
+    //fait l'observation de tout le labyrinth pour noter où sont les goals et les boxes
+    for(int i =0; i<DIRECTION_MAX;i++){
+        std::pair<int,int> temp = nextPos;
+            if(isGoal(temp)){
+                goals.push_back(temp);
+            }
+            if(i==0){
+                temp.first -=1;
+            }
+            else if(i==1){
+                temp.first +=1;
+            }
+            else if(i==2){
+                temp.second -=1;
+            }
+            else if(i==3){
+                temp.second +=1;
+            }
+            if(isBox(temp)){
+                boxes.push_back(temp);
+            }
+            if(isGoal(temp)){
+                goals.push_back(temp);
+            }
+    }
+    //si colonne pair et possible de descendre alors decendre si pair et peut pas descendre alors monter sinon aller à droite
+    //déplacement du perso en essayant de touché aux boites le moins possibles
+    testPos.first+=1;
+    if(!isWall(testPos)&& !bas && !isBox(testPos)){
+        updatePlayer(BOTTOM);
+        nextPos.first+=1;
+    }
+    else if(bas){
+        testPos.first-=2;
+        if(!isWall(testPos) && !isBox(testPos)){
+          updatePlayer(TOP);
+          nextPos.first-=1;
+        }
+        else{
+           bas = false;
+           testPos.first+=1;
+           testPos.second+=1;
+           if(!isWall(testPos) && !isBox(testPos)){
+                updatePlayer(RIGHT);
+                nextPos.second+=1;
+           }
+           else if(isWall(testPos)){
+                fin = true;
+           }
+           else if(isBox(testPos)){
+                std::pair<int,int> newBoxPos = testPos;
+                newBoxPos.second += 1;
+                pushBox(testPos, RIGHT);
+                updatePlayer(RIGHT);
+                boxes.remove(testPos);
+                boxes.push_back(newBoxPos);
+                nextPos.second += 1;
+           }
+        }
+    }
+
+    else{
+        testPos.first-=1;
+        testPos.second+=1;
+        if(!isWall(testPos)&& !isBox(testPos)){
+            updatePlayer(RIGHT);
+            nextPos.second+=1;
+        }
+        else if(isWall(testPos)){
+            fin =true;
+        }
+        else if(isBox(testPos)){
+            pushBox(testPos,RIGHT);
+            updatePlayer(RIGHT);
+            boxes.remove(testPos);
+            nextPos.second+=1;
+
+        }
+        bas = true;
+    }
+}
+
+//une fois que l'exploration du labyrinth est terminé il fait la résolution
+if(fin){
+    boxes.sort();
+    goals.sort();
+    boxes.unique();
+    goals.unique();
+    int t_boxes = boxes.size();
+    int t_goals = goals.size();
+    if(t_boxes == t_goals){
+    std::pair<int,int> targetBox = boxes.front();
+    std::pair<int,int> targetGoal = goals.front();
+    nextPos = getPlayerPosition();
+    int y =nextPos.first - targetBox.first;
+    int x = nextPos.second - targetBox.second;
+    if(x<0){
+        for(int i =0; i<(x*-1)+1;i++){
+            updatePlayer(RIGHT);
+        }
+    }
+    if(x>0){
+        for(int i =0; i<(x+1);i++){
+            updatePlayer(LEFT);
+        }
+    }
+    if(y<0){
+        for(int i =0; i<(y*-1);i++){
+            updatePlayer(BOTTOM);
+        }
+    }
+    if(y>0){
+        for(int i =0;i<y;i++){
+        updatePlayer(TOP);
+        }
+    }
+
+
+    //emmener la boite au goal
+    int y_goals = targetBox.first-targetGoal.first;
+    int x_goals = targetBox.second-targetGoal.second;
+    if(x_goals<0){
+        for(int i =0; i<(x_goals*-1)+1;i++){
+            updatePlayer(RIGHT);
+            pushBox(nextPos,RIGHT);
+            nextPos.second+=1;
+        }
+    }
+    if(x_goals>0){
+        for(int i =0; i<(x_goals+1);i++){
+            updatePlayer(LEFT);
+            pushBox(nextPos,LEFT);
+            nextPos.second-=1;
+        }
+
+    }
+    if(y_goals<0){
+        for(int i =0; i<(y_goals*-1);i++){
+            updatePlayer(BOTTOM);
+            pushBox(nextPos,BOTTOM);
+            nextPos.first+=1;
+        }
+    }
+    if(y_goals>0){
+        for(int i =0;i<y_goals;i++){
+        updatePlayer(TOP);
+        pushBox(nextPos,TOP);
+        nextPos.first-=1;
+        }
+    }
+     boxes.pop_front();
+     goals.pop_front();
+
+        // Si plus de boîtes, on a fini
+        if(boxes.empty()){
+            fin = false;
+        }
+    }
+    else{
+        fin=false;
+    }
+}
+
+}
+
