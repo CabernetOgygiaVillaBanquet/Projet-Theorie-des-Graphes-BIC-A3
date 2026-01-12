@@ -451,3 +451,54 @@ if(fin){
 
 }
 
+
+void Maze::solveNaif() {
+    int maxProfondeur = 20; // Limite pour éviter une récursion infinie sur de gros niveaux
+    std::cout << "Recherche naïve en cours (limite: " << maxProfondeur << " coups)..." << std::endl;
+
+    if (!bruteRecursive(0, maxProfondeur)) {
+        std::cout << "Aucune solution trouvée dans la limite de profondeur." << std::endl;
+    } else {
+        std::cout << "Solution trouvée et appliquée au labyrinthe !" << std::endl;
+    }
+}
+
+bool Maze::bruteRecursive(int depth, int maxDepth) {
+    // 1. Condition de victoire
+    if (this->isSolution()) {
+        return true;
+    }
+
+    // 2. Condition d'arrêt
+    if (depth >= maxDepth) {
+        return false;
+    }
+
+    // Sauvegarde de l'état actuel pour le Backtracking (retour en arrière)
+    auto backupField = this->m_field;
+    auto backupPlayerPos = this->m_playerPosition;
+    auto backupDir = this->m_playerDirection;
+
+    // 3. Tester les 4 directions : HAUT, BAS, GAUCHE, DROITE
+    for (int dir = 0; dir <= 3; ++dir) {
+
+        // On tente de déplacer le joueur
+        // updatePlayer renvoie true si le mouvement est possible
+        if (this->updatePlayer(dir)) {
+
+            // Si le mouvement a fonctionné, on passe au coup suivant
+            if (bruteRecursive(depth + 1, maxDepth)) {
+                return true; // On a trouvé, on remonte la pile d'appels
+            }
+
+            // BACKTRACK : Si ce chemin ne mène à rien, on annule le mouvement
+            // pour tester la direction suivante au même niveau
+            this->m_field = backupField;
+            this->m_playerPosition = backupPlayerPos;
+            this->m_playerDirection = (char)backupDir;
+        }
+    }
+
+    return false;
+}
+
