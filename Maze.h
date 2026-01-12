@@ -1,6 +1,8 @@
 #ifndef MAZE_H_INCLUDED
 #define MAZE_H_INCLUDED
-
+#include <list>
+#include <algorithm>
+#include <iostream>
 #include <vector>
 #include <string>
 #include <queue>
@@ -36,7 +38,11 @@ private:
     std::pair<int, int> playerPos;
     int h = 0, w = 0;
     char playerDir = RIGHT;
-
+    bool bas =false;
+    bool fin = false;
+    bool bloque = false;
+    std::list<std::pair<int,int>> boxes;
+    std::list<std::pair<int,int>> goals;
     void computeDeadlocks(); // Algo detection des deadlocks
 
 public:
@@ -70,3 +76,4 @@ public:
 };
 
 #endif
+
